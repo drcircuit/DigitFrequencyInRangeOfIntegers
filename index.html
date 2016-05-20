@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Distribution digit in range of integers</title>
+    <title>Frequency of digit in range of integers</title>
     <style>
         body {
             background: #333;
@@ -18,16 +18,18 @@
     </style>
 </head>
 <body>
-<canvas id="screen" width="800" height="600"></canvas>
+<canvas id="screen"></canvas>
 </body>
 <script>
     var c = document.getElementById('screen');
     var ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
     var fillBg = '#333';
     var fillUp = '#666';
     var fillDown = '#ff9';
     var graphColor = '#ff9';
     var axisColor = 'white';
+    var valueAxisColor = '#555';
     var size = {w: ctx.canvas.width, h: ctx.canvas.height};
     var currentY = 0;
     var update = function () {
@@ -50,7 +52,6 @@
         if (y === 0) {
             y = size;
         }
-        console.log('s:' + size + 'y:' + (y + yoffset));
         ctx.font = Math.round(size) + 'px Verdana';
         var x = (ctx.canvas.width - sizeOf(text)) / 2;
         ctx.fillStyle = color;
@@ -72,8 +73,29 @@
         var axismargin = 10;
         ctx.fillText(yunit + ' ' + ymax, coords.topleft.x - sizeOf(yunit + ' ' + ymax) - axismargin, coords.topleft.y + fontsize / 2);
         ctx.fillText(ymin, coords.bottomleft.x - sizeOf(ymin) - axismargin, coords.bottomleft.y);
-        ctx.fillText(xunit + ': ' + xmin, 4 + coords.bottomleft.x - axismargin / 2 - sizeOf(xunit + ' ' + xmin), coords.bottomleft.y + axismargin * 2);
-        ctx.fillText(xmax, 1 + coords.bottomright.x - axismargin / 2 - sizeOf(xmax), coords.bottomright.y + axismargin * 2);
+        ctx.fillText(xunit + '', 4 + coords.bottomleft.x - axismargin / 2 - sizeOf(xunit + ' ' + xmin), coords.bottomleft.y + axismargin * 2);
+        //ctx.fillText(xmax, 1 + coords.bottomright.x - axismargin / 2 - sizeOf(xmax), coords.bottomright.y + axismargin * 2);
+        var xfactor = (coords.bottomright.x - coords.bottomleft.x) / 20;
+        var yfactor = (coords.bottomright.y - coords.topright.y) / 20;
+        for(var l = 1;l<=20;l++){
+            var x = coords.bottomleft.x + (l * xfactor);
+            var y = coords.bottomleft.y - (l * yfactor);
+            ctx.strokeStyle = valueAxisColor;
+//            ctx.beginPath();
+//            ctx.moveTo(x, coords.topleft.y);
+//            ctx.lineTo(x, coords.bottomleft.y);
+//            ctx.stroke();
+//            ctx.closePath();
+            ctx.beginPath();
+            ctx.moveTo(coords.bottomright.x, y);
+            ctx.lineTo(coords.topleft.x, y);
+            ctx.stroke();
+            ctx.closePath();
+
+        }
+
+    }
+    function getValue(ranges, point) {
 
     }
     function draw() {
@@ -105,7 +127,7 @@
         var subsizefont = c.width / text.length;
         currentY += renderTextCenter('Digit frequency', 0, currentY, graphColor);
         currentY += renderTextCenter('Please choose any number between 0 and 9', 0, currentY, 'white', subsizefont);
-        renderTextCenter('And you will see how many integers contain that number', 0, currentY, 'white', subsizefont);
+        renderTextCenter('And you will see how many integers between 0 and 10^100 that contain that number', 0, currentY, 'white', subsizefont);
         var headery = currentY;
         var row = 1;
         for (var n = 0; n < 10; n++) {
@@ -133,7 +155,7 @@
             var x = 200 - 10;
             var coords = {
                 topleft: {x: margin, y: currentY + 30},
-                topright: {x: size.w + margin, y: currentY + 30},
+                topright: {x: size.w + margin / 4, y: currentY + 30},
                 bottomleft: {x: margin, y: (size.h - currentY) / 1 - 0},
                 bottomright: {x: size.w - margin / 4, y: (size.h - currentY) / 1 - 0}
             };
@@ -143,15 +165,34 @@
                 ymin: 0,
                 ymax: 100
             };
-            drawAxis(ranges.xmin, ranges.xmax, ranges.ymin, ranges.ymax, 'Integers', 'Percent', coords);
+            drawAxis(ranges.xmin, ranges.xmax, ranges.ymin, ranges.ymax, '', 'Percent', coords);
+            var n = 0;
+            report.distributions.forEach(function(d){
+                var coord = getCoord(coords, ranges, d.occurrence, d.frequency);
+                ctx.beginPath();
+                ctx.moveTo(coord.x, coords.topleft.y);
+                ctx.lineTo(coord.x, coords.bottomleft.y);
+                ctx.strokeStyle = valueAxisColor;
+                ctx.stroke();
+                ctx.closePath();
+                if(n % 10 == 0){
+                    ctx.font = '10px verdana';
+                ctx.fillText(Math.pow(10, d.power).toExponential(0).toString(),coord.x-20, coords.bottomleft.y + 20);
+                }
+                n++;
+            });
             ctx.beginPath();
-            ctx.strokeStyle = graphColor;
+
             var origin = getCoord(coords, ranges, 0, 0);
             ctx.moveTo(origin.x, origin.y);
+            var lastpos = origin;
             report.distributions.forEach(function (d) {
                 var coord = getCoord(coords, ranges, d.occurrence, d.frequency);
                 ctx.lineTo(coord.x, coord.y);
+                lastpos = coord;
             });
+
+            ctx.strokeStyle = graphColor;
             ctx.stroke();
             ctx.closePath();
             var yoff = coords.bottomleft.y + 20;
