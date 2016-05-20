@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Distribution digit in range of integers</title>
+    <style>
+        body {
+            background: #333;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+        }
+
+        #screen {
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+<canvas id="screen" width="800" height="600"></canvas>
+</body>
+<script>
+    var c = document.getElementById('screen');
+    var ctx = c.getContext('2d');
+    var fillBg = '#333';
+    var fillUp = '#666';
+    var fillDown = '#ff9';
+    var graphColor = '#ff9';
+    var axisColor = 'white';
+    var size = {w: ctx.canvas.width, h: ctx.canvas.height};
+    var currentY = 0;
+    var update = function () {
+
+    };
+    c.addEventListener('mousedown', function (e) {
+        update(e);
+    });
+    function sizeOf(text) {
+        return ctx.measureText(text).width;
+    }
+    function renderTextCenter(text, y, yoffset, color, size) {
+        var maxsize = 46;
+        if (!size) {
+            size = ctx.canvas.width / text.length * 1;
+        }
+        if(size > maxsize){
+            size = maxsize;
+        }
+        if (y === 0) {
+            y = size;
+        }
+        console.log('s:' + size + 'y:' + (y + yoffset));
+        ctx.font = Math.round(size) + 'px Verdana';
+        var x = (ctx.canvas.width - sizeOf(text)) / 2;
+        ctx.fillStyle = color;
+        ctx.fillText(text, x, y + yoffset);
+        return y + 12;
+    }
+    function drawAxis(xmin, xmax, ymin, ymax, xunit, yunit, coords) {
+
+        ctx.clearRect(0, coords.topleft.y - 10, coords.topright.x + 10, coords.bottomright.y + 10);
+        ctx.beginPath();
+        ctx.strokeStyle = axisColor;
+        ctx.moveTo(coords.topleft.x, coords.topleft.y);
+        ctx.lineTo(coords.bottomleft.x, coords.bottomleft.y);
+        ctx.lineTo(coords.bottomright.x, coords.bottomright.y);
+        ctx.stroke();
+        ctx.closePath();
+        var fontsize = 12;
+        ctx.font = fontsize + 'px verdana';
+        var axismargin = 10;
+        ctx.fillText(yunit + ' ' + ymax, coords.topleft.x - sizeOf(yunit + ' ' + ymax) - axismargin, coords.topleft.y + fontsize / 2);
+        ctx.fillText(ymin, coords.bottomleft.x - sizeOf(ymin) - axismargin, coords.bottomleft.y);
+        ctx.fillText(xunit + ': ' + xmin, 4 + coords.bottomleft.x - axismargin / 2 - sizeOf(xunit + ' ' + xmin), coords.bottomleft.y + axismargin * 2);
+        ctx.fillText(xmax, 1 + coords.bottomright.x - axismargin / 2 - sizeOf(xmax), coords.bottomright.y + axismargin * 2);
+
+    }
+    function draw() {
+        var buttons = [];
+        currentY = 0;
+        ctx.canvas.width = window.innerWidth;
+        ctx.canvas.height = window.innerHeight;
+        size = {w: ctx.canvas.width, h: ctx.canvas.height};
+        update = function (e) {
+            buttons.forEach(function (button) {
+                if (button.hitZone(e)) {
+                    button.action();
+                    button.upaction();
+                }
+            });
+        };
+
+        var rows = 1;
+        var totalButtons = 10;
+        var space = 2;
+        var width = c.width / (totalButtons + space);
+        if (width < 64) {
+            rows = 2;
+            width = c.width / ((totalButtons + space) / rows);
+        }
+        var margin = (c.width - ((width * totalButtons / rows)))/totalButtons / rows;
+        var offset = (c.width - ((width - space + margin) * totalButtons/rows))/2;
+        var text = 'Choose any number between 0 and 9 to see how many integers contain that digit';
+        var subsizefont = c.width / text.length;
+        currentY += renderTextCenter('Digit frequency', 0, currentY, graphColor);
+        currentY += renderTextCenter('Please choose any number between 0 and 9', 0, currentY, 'white', subsizefont);
+        renderTextCenter('And you will see how many integers contain that number', 0, currentY, 'white', subsizefont);
+        var headery = currentY;
+        var row = 1;
+        for (var n = 0; n < 10; n++) {
+
+            var currx = 0;
+            (function (n) {
+                var rem = n % 5;
+                if (rows > 1 && rem === 0 && n > 0) {
+                    row++;
+                }
+                if (rows === 2) {
+                    currx = n % 5;
+                } else {
+                    currx = n;
+                }
+                addButton(n.toString(), offset + currx * (width + margin), headery + row + (width / 2 * row), width, width / 2, function () {
+                    displayReport(integerFrequency(n, 100));
+                });
+            })(n);
+
+        }
+
+        function displayReport(report) {
+            var margin = 200 / 2;
+            var x = 200 - 10;
+            var coords = {
+                topleft: {x: margin, y: currentY + 30},
+                topright: {x: size.w + margin, y: currentY + 30},
+                bottomleft: {x: margin, y: (size.h - currentY) / 1 - 0},
+                bottomright: {x: size.w - margin / 4, y: (size.h - currentY) / 1 - 0}
+            };
+            var ranges = {
+                xmin: 0,
+                xmax: report.numbers,
+                ymin: 0,
+                ymax: 100
+            };
+            drawAxis(ranges.xmin, ranges.xmax, ranges.ymin, ranges.ymax, 'Integers', 'Percent', coords);
+            ctx.beginPath();
+            ctx.strokeStyle = graphColor;
+            var origin = getCoord(coords, ranges, 0, 0);
+            ctx.moveTo(origin.x, origin.y);
+            report.distributions.forEach(function (d) {
+                var coord = getCoord(coords, ranges, d.occurrence, d.frequency);
+                ctx.lineTo(coord.x, coord.y);
+            });
+            ctx.stroke();
+            ctx.closePath();
+            var yoff = coords.bottomleft.y + 20;
+            yoff += renderTextCenter('The number '+report.integer+' exists in ' + report.distributions[report.distributions.length - 1].frequency + '%', 0, yoff, 'white', 16);
+            yoff += renderTextCenter('of all integers between 0 and  ' + report.numbers, 0, yoff, 'white', 16) ;
+            yoff += renderTextCenter('Proven by:', 0, yoff, '#aaa', 16)- 5;
+            yoff += renderTextCenter('P = 100',0,yoff,'#aaa',14);
+            yoff += renderTextCenter('I = 10  - 9  ',0,yoff,'#aaa',14);
+            renderTextCenter('              P      P  ',0,yoff-31,'#aaa',10);
+            yoff += renderTextCenter('F = 100 * I / 10',0,yoff, '#aaa', 14);
+            renderTextCenter('                                 P',0,yoff-31,'#aaa',10);
+
+        }
+
+        function getCoord(coords, ranges, x, y) {
+            var offsetx = coords.bottomleft.x;
+            var offsety = coords.topleft.y;
+            var width = coords.bottomright.x - coords.bottomleft.x;
+            var height = coords.bottomright.y - coords.topleft.y;
+            var xrange = Math.log10(ranges.xmax) - Math.log10(ranges.xmin + 1);
+            var yfactor = (height) / (ranges.ymax - ranges.ymin);
+            var val;
+            if (x > 0) {
+                val = Math.log10(x + 1);
+
+            } else {
+                val = 0;
+            }
+            return {
+                x: Math.round(width / xrange * (val - Math.log10(ranges.xmin + 1))) + offsetx,
+                y: height - Math.round(y * yfactor) + offsety
+            };
+        }
+
+        function integerFrequency(integer, highestPowerOfTen) {
+            var report = {
+                integer: integer,
+                distributions: [],
+                numbers: Math.pow(10, highestPowerOfTen)
+            };
+            for (var n = 0; n <= highestPowerOfTen; n++) {
+                var I = (Math.pow(10, n) - Math.pow(9, n));
+                var F = (100 * I / Math.pow(10,n)).toFixed(4);
+                report.distributions.push(
+                        {
+                            power: n,
+                            occurrence: I,
+                            frequency: F
+                        });
+            }
+            return report;
+        }
+
+        function addButton(label, x, y, width, height, action) {
+
+            drawButton(label, x, y, width, height, fillUp);
+            currentY = y + height;
+            buttons.push({
+                hitZone: function (e) {
+                    return (e.offsetX >= x && e.offsetX <= x + width && e.offsetY >= y && e.offsetY <= y + height);
+
+                }, action: function () {
+                    drawButton(label, x, y, width, height, fillDown);
+                    action();
+
+                }, upaction: function () {
+                    setTimeout(function () {
+                        drawButton(label, x, y, width, height, fillUp);
+                    }, 100);
+
+                }
+            });
+        }
+
+        function drawButton(label, x, y, width, height, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, width, height);
+            var fontsize = height - 3;
+            ctx.font = fontsize + 'px Verdana';
+            ctx.fillStyle = 'white';
+            var text = ctx.measureText(label.toUpperCase());
+            ctx.fillText(label.toUpperCase(), x + (width - text.width) / 2, y + (height) / 2 + fontsize / 3);
+        }
+    }
+    draw();
+    window.addEventListener("resize", function () {
+        draw();
+    });
+</script>
+</html>
